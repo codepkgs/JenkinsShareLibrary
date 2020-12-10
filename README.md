@@ -9,5 +9,5 @@
 
 ```text
 1. 需要安装python3.6+
-pip3.6 install wechatrobot dingdingrobot
+pip3 install wechatrobot dingdingrobot
 ```
