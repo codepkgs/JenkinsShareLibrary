@@ -1,0 +1,40 @@
+// 导入共享库
+@Library('jenkins_share_library') _
+
+// 定义引用的内容
+def notify = new fdisk.devops.notify()
+def userinfo = new fdisk.devops.userinfo()
+
+pipeline {
+    agent {
+        label "master"
+    }
+    
+    stages {
+        // 此步为必须，需要加入到你的pipline中，否则无法获取用户信息
+        stage('get build user') {
+            steps {
+                script {
+                    userinfo.userInfo()
+                }
+            }
+        }
+        stage('test') {
+            steps {
+                echo "test"
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // 用于发送钉钉上线通知
+                notify.DingTalkRobot('/usr/local/pyenv/shims/python3', '/opt/scripts/jenkins_dingdingrobot.py')
+                // 用于发送微信机器人上线通知
+                notify.WechatRobot('/usr/local/pyenv/shims/python3', '/opt/scripts/jenkins_wechatrobot.py')
+            }
+            
+        }
+    }
+}
