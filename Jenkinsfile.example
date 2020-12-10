@@ -3,7 +3,7 @@
 
 // 定义引用的内容
 def notify = new fdisk.devops.notify()
-def userinfo = new fdisk.devops.userinfo()
+def build = new fdisk.devops.build()
 
 pipeline {
     agent {
@@ -15,7 +15,7 @@ pipeline {
         stage('get build user') {
             steps {
                 script {
-                    userinfo.userInfo()
+                    build.getBuildUser()
                 }
             }
         }
