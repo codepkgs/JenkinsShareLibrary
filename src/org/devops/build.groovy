@@ -1,6 +1,6 @@
 package org.devops
 
-def getBuildUser() {
+def GetBuildUser() {
     wrap([$class: 'BuildUser']) {
         script {
             BUILD_USER_ID = "${env.BUILD_USER_ID}"
