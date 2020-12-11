@@ -5,9 +5,30 @@
 def notify = new fdisk.devops.notify()
 def build = new fdisk.devops.build()
 
+// 定义变量
+def git_url = '<your git address>'
+def jenkins_credential_id = '<your jenkins credential_id, for checkout code from git>'
+
 pipeline {
     agent {
         label "master"
+    }
+
+    // build options
+    options {
+        // 显示时间戳
+        timestamps()
+        // 构建超时时间为30min
+        timeout(time: 30, unit: 'MINUTES')
+        // 不允许并发构建
+        disableConcurrentBuilds()
+        // 保留最近30个构建
+        buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '30')
+    }
+
+    // Git Parameter Plug-In (让用户选择指定的上线分支)
+    parameters {
+        gitParameter branch: '', branchFilter: '.*', defaultValue: '', description: 'branch name', name: 'branch', quickFilterEnabled: false, selectedValue: 'NONE', sortMode: 'NONE', tagFilter: '*', type: 'PT_BRANCH', useRepository: "${git_url}"
     }
     
     stages {
@@ -15,13 +36,18 @@ pipeline {
         stage('get build user') {
             steps {
                 script {
+                    log.Message("get build user")
                     build.GetBuildUser()
                 }
             }
         }
-        stage('test') {
+        stage('checkout code') {
             steps {
-                echo "test"
+                script {
+                    branch = build.GetBranch("${branch}")
+                    log.Message("checkout code from ${git_url}, branch: ${branch}")
+                    build.CheckoutCodeFromGit("${git_url}", "${branch}", "${jenkins_credential_id}")
+                }
             }
         }
     }
