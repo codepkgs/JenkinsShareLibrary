@@ -29,3 +29,22 @@ def CheckoutCodeFromGit(git_url, git_branch, jenkins_credentials_id) {
         branch: "${git_branch}",
         credentialsId: "${jenkins_credentials_id}"
 }
+
+def BuildAndPushImageToRegistry(registry_url, credentials_id, image_name, dockerfile_path='./Dockerfile', dockerfile_context='.') {
+        registry_name = registry_url.split('://')[1].toString()
+
+        if (image_name.startsWith('/')) {
+            docker_image_name = "${registry_name}" + image_name
+        } else if (image_name.startsWith("${registry_name}")) {
+            docker_image_name = image_name
+        } else {
+            docker_image_name = "${registry_name}/" + image_name
+        }
+
+        withDockerRegistry(url: "${registry_url}", credentialsId: "${credentials_id}") {
+            def image = docker.build("${docker_image_name}", "-f ${dockerfile_path} ${dockerfile_context}")
+            image.push()
+        }
+
+        return docker_image_name
+}
