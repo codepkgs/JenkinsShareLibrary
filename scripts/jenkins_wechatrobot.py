@@ -26,7 +26,7 @@ contents = [
     '> 构建用户：{}'.format(build_user),
     '> 构建时间：{}'.format(current_time),
     '> 构建版本：{}'.format(build_number),
-    '> [console_log]({})'.format(build_url + '/console'),
+    '> [console_log]({})'.format(build_url + 'console'),
 ]
 
 wxrobot.send_markdown(contents)

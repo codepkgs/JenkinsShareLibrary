@@ -1,38 +1,45 @@
-// 导入共享库
 @Library('jenkins_share_library') _
 
-// 定义引用的内容
-def notify = new fdisk.devops.notify()
-def build = new fdisk.devops.build()
-
-// 定义变量
-def git_url = '<your git address>'
-def jenkins_credential_id = '<your jenkins credential_id, for checkout code from git>'
+def log = new org.devops.log()
+def k8s = new org.devops.kubernetes()
+def build = new org.devops.build()
+def config = new org.devops.config()
+def notify = new org.devops.notify()
 
 pipeline {
-    agent {
-        label "master"
-    }
+    agent any
 
-    // build options
     options {
-        // 显示时间戳
         timestamps()
-        // 构建超时时间为30min
         timeout(time: 30, unit: 'MINUTES')
-        // 不允许并发构建
         disableConcurrentBuilds()
-        // 保留最近30个构建
         buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '30')
     }
 
-    // Git Parameter Plug-In (让用户选择指定的上线分支)
-    parameters {
-        gitParameter branch: '', branchFilter: '.*', defaultValue: '', description: 'branch name', name: 'branch', quickFilterEnabled: false, selectedValue: 'NONE', sortMode: 'NONE', tagFilter: '*', type: 'PT_BRANCH', useRepository: "${git_url}"
+    environment {
+        IMAGE_REGISTRY = "registry.cn-beijing.aliyuncs.com"
+        // format: namespace/respository_name
+        IMAGE_REPOSITORY="production/mytest"
+        IMAGE_NAME="${env.IMAGE_REPOSITORY}:${env.BUILD_NUMBER}"
+
+        // dockerfile_path
+        DOCKERFILE_PATH="./Dockerfile"
+        DOCKERFILE_CONTEXT="."
+
+        // kubernetes set image
+        RESOURCE_TYPE="deployment"
+        RESOURCE_NAME="nwap"
+        CONTAINER_NAME="${env.RESOURCE_NAME}"
+
+        // kubeconfig file name
+        KUBECONFIG_PATH="/var/lib/jenkins/.kube/config"
+
+        // render config environment
+        CONFIG_ENVIRONMENT = 'production'
     }
-    
+
+    // [dont modify]
     stages {
-        // 此步为必须，需要加入到你的pipline中，否则无法获取用户信息
         stage('get build user') {
             steps {
                 script {
@@ -41,26 +48,42 @@ pipeline {
                 }
             }
         }
-        stage('checkout code') {
+
+        stage('render project config file from devops directory') {
             steps {
                 script {
-                    branch = build.GetBranch("${branch}")
-                    log.Message("checkout code from ${git_url}, branch: ${branch}")
-                    build.CheckoutCodeFromGit("${git_url}", "${branch}", "${jenkins_credential_id}")
+                    log.Message('render project config file from devops directory')
+                    config.RenderConfig("${env.CONFIG_ENVIRONMENT}")
+                }
+            }
+        }
+
+        stage("build and push docker image to aliyun") {
+            steps {
+                script {
+                    log.Message('build and push docker image to aliyun')
+                    image_name = build.BuildAndPushImageToAliyun("${env.IMAGE_NAME}", "${env.DOCKERFILE_PATH}", "${env.DOCKERFILE_CONTEXT}")
+                    log.Message("image name: ${image_name}") 
+                }
+            }
+        }
+
+        stage("kubernetes update image") {
+            steps {
+                script {
+                    log.Message("kubernetes set image: ${env.RESOURCE_TYPE}/${env.RESOURCE_NAME} ${env.CONTAINER_NAME}=${image_name}")
+                    k8s.SetImage("${env.RESOURCE_TYPE}", "${env.RESOURCE_NAME}", "${env.CONTAINER_NAME}", "${image_name}", "${env.KUBECONFIG_PATH}")
                 }
             }
         }
     }
-    
+
     post {
         always {
             script {
-                // 用于发送钉钉上线通知
-                notify.DingTalkRobot('/usr/local/pyenv/shims/python3', '/opt/scripts/jenkins_dingdingrobot.py')
-                // 用于发送微信机器人上线通知
-                notify.WechatRobot('/usr/local/pyenv/shims/python3', '/opt/scripts/jenkins_wechatrobot.py')
+                log.Message('send message to wechat robot')
+                notify.WechatRobot("python3", "/opt/scripts/jenkins_wechatrobot.py")
             }
-            
         }
     }
 }

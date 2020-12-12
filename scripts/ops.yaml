@@ -1,0 +1,5 @@
+configs:
+- env: production
+  type: file
+  src: devops/production/config.js
+  dst: config.js
